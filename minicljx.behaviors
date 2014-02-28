@@ -1,0 +1,2 @@
+{:+ {:app [(:lt.objs.plugins/load-js "minicljx_compiled.js")]
+     :minicljx.hello [:lt.plugins.minicljx/on-close-destroy]}}
