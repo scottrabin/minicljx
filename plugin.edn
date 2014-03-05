@@ -1,6 +1,6 @@
-{:name "lt_cljx"
+{:name "minicljx"
  :version "0.0.1"
  :author "Scott Rabin"
- :source "https://github.com/scottrabin/lt-cljx"
+ :source "https://github.com/scottrabin/minicljx"
  :desc "cljx bindings for repl evaluation"
- :behaviors "lt_cljx.behaviors"}
+ :behaviors "minicljx.behaviors"}

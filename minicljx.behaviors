@@ -1,2 +1,9 @@
-{:+ {:app [(:lt.objs.plugins/load-js "minicljx_compiled.js")]
-     :minicljx.hello [:lt.plugins.minicljx/on-close-destroy]}}
+{:+
+ {:app [(:lt.objs.plugins/load-js ["codemirror/clojure-mode.js"
+                                   "minicljx_compiled.js"])]
+  :files [(:lt.objs.files/file-types [{:name "Clojure/ClojureScript"
+                                       :exts [:cljx]
+                                       :mime "text/x-clojure+clojurescript"
+                                       :tags [:editor.cljx]}])]
+  :editor.cljx [:lt.plugins.minicljx/on-eval
+                :lt.plugins.minicljx/on-precompile-result]}}
