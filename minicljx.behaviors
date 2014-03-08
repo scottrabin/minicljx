@@ -6,4 +6,5 @@
                                        :mime "text/x-clojure+clojurescript"
                                        :tags [:editor.cljx]}])]
   :editor.cljx [:lt.plugins.minicljx/on-eval
-                :lt.plugins.minicljx/on-precompile-result]}}
+                :lt.plugins.minicljx/on-precompile-result
+                :lt.plugins.minicljx/cljx-result.inline]}}

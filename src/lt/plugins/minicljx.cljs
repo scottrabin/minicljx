@@ -45,24 +45,38 @@
                                         :meta {::type :cljs})
                                       :only origin))))
 
+(defn- process-cljx-transform-result
+  "Internal helper function to process the result of a cljx transformation"
+  [editor result]
+  (let [result-type (-> result :meta ::type)
+        editor-tag (->dottedkw :editor result-type)
+        command (->dottedkw :editor.eval result-type)
+        processed-code (->> (:results result)
+                            (map :result)
+                            (map reader/read-string)
+                            (apply str))
+        info (assoc (:info @editor) :code processed-code)]
+    (clients/send (eval/get-client! {:command command
+                                     :info info
+                                     :origin editor
+                                     :create lt-clj/try-connect})
+                  command info :only editor)))
+
+(defn- process-cljx-result
+  "Internal helper function to process the result of executing transformed code"
+  [editor result]
+  (let [result-type (get-in result [:meta :result-type] :inline)]
+    (object/raise editor
+                  (->dottedkw :editor.eval.cljx.result result-type)
+                  result)))
+
 (behavior ::on-precompile-result
           :triggers #{:editor.eval.clj.result}
           :reaction (fn [obj res]
-                      (if-let [result-type (-> res :meta ::type)]
-                        (let [editor-tag (->dottedkw :editor result-type)
-                              command (->dottedkw :editor.eval result-type)
-                              processed-code (->> (:results res)
-                                                  (map :result)
-                                                  (map reader/read-string)
-                                                  (apply str))
-                              info (assoc (:info @obj) :code processed-code)]
-                          (object/add-tags obj [editor-tag])
-                          (clients/send (eval/get-client! {:command command
-                                                           :info info
-                                                           :origin obj
-                                                           :create lt-clj/try-connect})
-                                        command info :only obj)
-                        #_ (object/remove-tags obj [:editor.clj :editor.cljs])))))
+                      (let [process-fn (if (contains? (:meta res) ::type)
+                                         process-cljx-transform-result
+                                         process-cljx-result)]
+                        (process-fn obj res))))
 
 (object/object* ::minicljx-lang
                 :tags #{}
@@ -70,3 +84,15 @@
                 :triggers #{:eval!})
 
 (def minicljx-lang (object/create ::minicljx-lang))
+
+(behavior ::cljx-result.inline
+          :triggers #{:editor.eval.cljx.result.inline}
+          :reaction (fn [obj res]
+                      (doseq [result (:results res)
+                              :let [meta (:meta result)
+                                    loc {:line (-> meta :end-line dec)
+                                         :ch (-> meta :end-column)
+                                         :start-line (-> meta :line dec)}]]
+                        (if (contains? result :stack)
+                          (object/raise obj :editor.eval.cljx.exception result :passed)
+                          (object/raise obj :editor.result (:result result) loc)))))
