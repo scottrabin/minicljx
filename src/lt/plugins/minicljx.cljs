@@ -9,81 +9,62 @@
             [lt.objs.clients :as clients])
   (:require-macros [lt.macros :refer [behavior]]))
 
+(defn- send-command
+  [editor command info]
+  "Send the given command to the appropriate evaluation environment.
+  This is an internal helper function to ensure that the correct REPL
+  is used to evaluate eval'd code"
+  (let [client (eval/get-client! {:command command
+                                  :info info
+                                  :origin editor
+                                  :create lt-clj/try-connect})]
+    (clients/send client command info :only editor)))
+
 (defn get-transform [code ruleset]
   (-> "(require '[cljx.core] '[cljx.rules]) (cljx.core/transform %CODE% cljx.rules/%RULESET%-rules)"
       (clojure.string/replace "%RULESET%" (name ruleset))
       (clojure.string/replace "%CODE%" (pr-str code))))
 
-(behavior ::on-eval
-          :triggers #{:eval :eval.one}
-          :reaction (fn [editor]
-                      (object/raise minicljx-lang
-                                    :eval!
-                                    {:origin editor
-                                     :info (assoc
-                                             (@editor :info)
-                                             :code
-                                             (ed/->val (:ed @editor)))})))
-
-(behavior ::eval!
-          :triggers #{:eval!}
-          :reaction (fn [this event]
-                      (let [{:keys [info origin]} event
-                            command :editor.eval.clj
-                            client (eval/get-client! {:command command
-                                                      :origin origin
-                                                      :info info
-                                                      :create lt-clj/try-connect})]
-                        (clients/send client command
-                                      (assoc info
-                                        :code (get-transform (:code info) :clj)
-                                        :meta {::type :clj})
-                                      :only origin)
-                        #_ (clients/send client command
-                                      (assoc info
-                                        :code (get-transform (:code info) :cljs)
-                                        :meta {::type :cljs})
-                                      :only origin))))
+(defn do-transform
+  "Run the transform operations for clj/s"
+  [editor code ruleset]
+  (send-command editor :editor.eval.clj
+                (assoc (:info @editor)
+                  :code (get-transform code ruleset)
+                  :meta {::type ruleset})))
 
 (defn- process-cljx-transform-result
   "Internal helper function to process the result of a cljx transformation"
   [editor result]
   (let [result-type (-> result :meta ::type)
-        editor-tag (->dottedkw :editor result-type)
         command (->dottedkw :editor.eval result-type)
         processed-code (->> (:results result)
                             (map :result)
                             (map reader/read-string)
                             (apply str))
         info (assoc (:info @editor) :code processed-code)]
-    (clients/send (eval/get-client! {:command command
-                                     :info info
-                                     :origin editor
-                                     :create lt-clj/try-connect})
-                  command info :only editor)))
+    (send-command editor command info)))
 
 (defn- process-cljx-result
   "Internal helper function to process the result of executing transformed code"
   [editor result]
-  (let [result-type (get-in result [:meta :result-type] :inline)]
-    (object/raise editor
-                  (->dottedkw :editor.eval.cljx.result result-type)
-                  result)))
+  (let [result-type (get-in result [:meta :result-type] :inline)
+        command (->dottedkw :editor.eval.cljx.result result-type)]
+    (object/raise editor command result)))
 
-(behavior ::on-precompile-result
+(behavior ::on-eval
+          :triggers #{:eval :eval.one}
+          :reaction (fn [editor]
+                      (let [code (ed/->val (:ed @editor))]
+                        (do-transform editor code :clj))))
+
+(behavior ::cljx-result
           :triggers #{:editor.eval.clj.result}
           :reaction (fn [obj res]
                       (let [process-fn (if (contains? (:meta res) ::type)
                                          process-cljx-transform-result
                                          process-cljx-result)]
                         (process-fn obj res))))
-
-(object/object* ::minicljx-lang
-                :tags #{}
-                :behaviors [::eval!]
-                :triggers #{:eval!})
-
-(def minicljx-lang (object/create ::minicljx-lang))
 
 (behavior ::cljx-result.inline
           :triggers #{:editor.eval.cljx.result.inline}
