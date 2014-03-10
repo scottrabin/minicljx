@@ -3,13 +3,13 @@
             [cljs.reader :as reader]
             [lt.util.cljs :refer [->dottedkw str-contains?]]
             [lt.object :as object]
+            [lt.objs.notifos :as notifos]
             [lt.objs.eval :as eval]
             [lt.objs.editor :as ed]
             [lt.objs.clients :as clients])
   (:require-macros [lt.macros :refer [behavior]]))
 
 (defn get-transform [code ruleset]
-  (print "transforming " code)
   (-> "(require '[cljx.core] '[cljx.rules]) (cljx.core/transform %CODE% cljx.rules/%RULESET%-rules)"
       (clojure.string/replace "%RULESET%" (name ruleset))
       (clojure.string/replace "%CODE%" (pr-str code))))
@@ -96,3 +96,14 @@
                         (if (contains? result :stack)
                           (object/raise obj :editor.eval.cljx.exception result :passed)
                           (object/raise obj :editor.result (:result result) loc)))))
+
+(behavior ::cljx-result.exception
+          :triggers #{:editor.eval.cljx.exception}
+          :reaction (fn [obj res passed?]
+                      (when-not passed?
+                        (notifos/done-working ""))
+                      (let [loc {:line (-> res :meta :end-line dec)
+                                 :ch (get-in res [:meta :end-column] 0)
+                                 :start-line (dec (get-in res [:meta :line] 1))}]
+                        (notifos/set-msg! (:result res) {:class "error"})
+                        (object/raise obj :editor.exception (:stack res) loc))))
