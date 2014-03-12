@@ -54,20 +54,24 @@
         command (->dottedkw :editor.eval.cljx.result result-type)]
     (object/raise editor command result)))
 
+(defn- evaluate-cljx
+  [editor info]
+  (let [info (assoc info
+               :code (ed/->val (:ed @editor)))
+        modes [:clj :cljs]]
+    (doseq [mode modes]
+      (do-transform editor info mode))))
+
 (behavior ::on-eval
           :triggers #{:eval}
           :reaction (fn [editor]
-                      (let [info (assoc (:info @editor)
-                                   :code (ed/->val (:ed @editor)))]
-                        (do-transform editor info :clj))))
+                      (evaluate-cljx editor (:info @editor))))
 
 (behavior ::on-eval.one
           :triggers #{:eval.one}
           :reaction (fn [editor]
-                      (let [info (assoc (:info @editor)
-                                   :code (ed/->val (:ed @editor))
-                                   :meta {::pos (ed/->cursor editor)})]
-                      (do-transform editor info :clj))))
+                      (evaluate-cljx editor (assoc (:info @editor)
+                                              :meta {::pos (ed/->cursor editor)}))))
 
 (behavior ::cljx-result
           :triggers #{:editor.eval.clj.result}
@@ -76,6 +80,29 @@
                                          process-cljx-transform-result
                                          process-cljx-result)]
                         (process-fn obj res))))
+
+(behavior ::cljx-result.cljs
+          :triggers #{:editor.eval.cljs.code}
+          :reaction (fn [editor results]
+                      (let [command :editor.eval.cljs.exec
+                            path (get-in @editor [:info :path])
+                            client (eval/get-client! {:command command
+                                                      :info {:type "cljs"}
+                                                      :key :exec
+                                                      :origin editor})
+                            processed-result (update-in results [:results]
+                                                        #(for [result %]
+                                                           (assoc result :code
+                                                             (-> result
+                                                                 :code
+                                                                 (eval/pad (-> result :meta :line dec))
+                                                                 (eval/append-source-file path)))))]
+                        (clients/send client command processed-result :only editor))))
+
+(behavior ::cljx-result.cljs.result
+          :triggers #{:editor.eval.cljs.result}
+          :reaction (fn [editor result]
+                      (process-cljx-result editor {:results (list result)})))
 
 (behavior ::cljx-result.inline
           :triggers #{:editor.eval.cljx.result.inline}
@@ -92,7 +119,12 @@
 (behavior ::cljx-result.no-op
           :triggers #{:editor.eval.clj.no-op}
           :reaction (fn [editor location]
-                      (notifos/set-msg! "No form found under cursor" {:class "error"}) ))
+                      (notifos/set-msg! "No clj form found under cursor")))
+
+(behavior ::cljx-result.cljs.no-op
+          :triggers #{:editor.eval.cljs.no-op}
+          :reaction (fn [editor location]
+                      (notifos/set-msg! "No cljs form found under cursor")))
 
 (behavior ::cljx-result.exception
           :triggers #{:editor.eval.cljx.exception}
