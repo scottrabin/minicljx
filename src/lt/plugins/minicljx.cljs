@@ -90,6 +90,11 @@
                           (object/raise obj :editor.eval.cljx.exception result :passed)
                           (object/raise obj :editor.result (:result result) loc)))))
 
+(behavior ::cljx-result.no-op
+          :triggers #{:editor.eval.clj.no-op}
+          :reaction (fn [editor location]
+                      (notifos/set-msg! "No form found under cursor" {:class "error"}) ))
+
 (behavior ::cljx-result.exception
           :triggers #{:editor.eval.cljx.exception}
           :reaction (fn [obj res passed?]
@@ -100,8 +105,3 @@
                                  :start-line (dec (get-in res [:meta :line] 1))}]
                         (notifos/set-msg! (:result res) {:class "error"})
                         (object/raise obj :editor.exception (:stack res) loc))))
-
-(behavior ::cljx-result.no-op
-          :triggers #{:editor.eval.clj.no-op}
-          :reaction (fn [editor location]
-                      (notifos/set-msg! "No form found under cursor" {:class "error"}) ))
