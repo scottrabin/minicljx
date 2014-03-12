@@ -88,13 +88,12 @@
                                                       :info {:type "cljs"}
                                                       :key :exec
                                                       :origin editor})
-                            processed-result (update-in results [:results]
-                                                        #(for [result %]
-                                                           (assoc result :code
-                                                             (-> result
-                                                                 :code
-                                                                 (eval/pad (-> result :meta :line dec))
-                                                                 (eval/append-source-file path)))))]
+                            processed-result (assoc results
+                                               :results (for [result (:results results)]
+                                                          (update-in result [:code]
+                                                                     #(-> %
+                                                                          (eval/pad (-> result :meta :line dec))
+                                                                          (eval/append-source-file path)))))]
                         (clients/send client command processed-result :only editor))))
 
 (behavior ::cljx.result.clj
