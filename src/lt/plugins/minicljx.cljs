@@ -1,8 +1,7 @@
 (ns lt.plugins.minicljx
   (:require [lt.plugins.clojure :as lt-clj]
-            [lt.plugins.watches :as watches]
             [cljs.reader :as reader]
-            [lt.util.cljs :refer [->dottedkw str-contains?]]
+            [lt.util.cljs :refer [->dottedkw]]
             [lt.object :as object]
             [lt.objs.notifos :as notifos]
             [lt.objs.eval :as eval]
