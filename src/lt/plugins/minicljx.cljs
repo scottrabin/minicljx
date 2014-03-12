@@ -73,15 +73,13 @@
                       (evaluate-cljx editor (assoc (:info @editor)
                                               :meta {::pos (ed/->cursor editor)}))))
 
-(behavior ::cljx-result
+(behavior ::cljx.precompile-result.clj
           :triggers #{:editor.eval.clj.result}
-          :reaction (fn [obj res]
-                      (let [process-fn (if (contains? (:meta res) ::type)
-                                         process-cljx-transform-result
-                                         process-cljx-result)]
-                        (process-fn obj res))))
+          :reaction (fn [editor result]
+                      (when (contains? (:meta result) ::type)
+                        (process-cljx-transform-result editor result))))
 
-(behavior ::cljx-result.cljs
+(behavior ::cljx.precompile-result.cljs
           :triggers #{:editor.eval.cljs.code}
           :reaction (fn [editor results]
                       (let [command :editor.eval.cljs.exec
@@ -99,12 +97,28 @@
                                                                  (eval/append-source-file path)))))]
                         (clients/send client command processed-result :only editor))))
 
-(behavior ::cljx-result.cljs.result
+(behavior ::cljx.result.clj
+          :triggers #{:editor.eval.clj.result}
+          :reaction (fn [editor result]
+                      (when-not (contains? (:meta result) ::type)
+                        (process-cljx-result editor result))))
+
+(behavior ::cljx.result.cljs
           :triggers #{:editor.eval.cljs.result}
           :reaction (fn [editor result]
                       (process-cljx-result editor {:results (list result)})))
 
-(behavior ::cljx-result.inline
+(behavior ::cljx.result.clj.no-op
+          :triggers #{:editor.eval.clj.no-op}
+          :reaction (fn [editor location]
+                      (notifos/set-msg! "No clj form found under cursor")))
+
+(behavior ::cljx.result.cljs.no-op
+          :triggers #{:editor.eval.cljs.no-op}
+          :reaction (fn [editor location]
+                      (notifos/set-msg! "No cljs form found under cursor")))
+
+(behavior ::cljx.result.inline
           :triggers #{:editor.eval.cljx.result.inline}
           :reaction (fn [obj res]
                       (doseq [result (:results res)
@@ -116,17 +130,7 @@
                           (object/raise obj :editor.eval.cljx.exception result :passed)
                           (object/raise obj :editor.result (:result result) loc)))))
 
-(behavior ::cljx-result.no-op
-          :triggers #{:editor.eval.clj.no-op}
-          :reaction (fn [editor location]
-                      (notifos/set-msg! "No clj form found under cursor")))
-
-(behavior ::cljx-result.cljs.no-op
-          :triggers #{:editor.eval.cljs.no-op}
-          :reaction (fn [editor location]
-                      (notifos/set-msg! "No cljs form found under cursor")))
-
-(behavior ::cljx-result.exception
+(behavior ::cljx.result.exception
           :triggers #{:editor.eval.cljx.exception}
           :reaction (fn [obj res passed?]
                       (when-not passed?

@@ -7,10 +7,11 @@
                                        :tags [:editor.cljx]}])]
   :editor.cljx [:lt.plugins.minicljx/on-eval
                 :lt.plugins.minicljx/on-eval.one
-                :lt.plugins.minicljx/cljx-result
-                :lt.plugins.minicljx/cljx-result.cljs
-                :lt.plugins.minicljx/cljx-result.cljs.result
-                :lt.plugins.minicljx/cljx-result.cljs.no-op
-                :lt.plugins.minicljx/cljx-result.inline
-                :lt.plugins.minicljx/cljx-result.no-op
-                :lt.plugins.minicljx/cljx-result.exception]}}
+                :lt.plugins.minicljx/cljx.precompile-result.clj
+                :lt.plugins.minicljx/cljx.precompile-result.cljs
+                :lt.plugins.minicljx/cljx.result.clj
+                :lt.plugins.minicljx/cljx.result.cljs
+                :lt.plugins.minicljx/cljx.result.clj.no-op
+                :lt.plugins.minicljx/cljx.result.cljs.no-op
+                :lt.plugins.minicljx/cljx.result.inline
+                :lt.plugins.minicljx/cljx.result.exception]}}
