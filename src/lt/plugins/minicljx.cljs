@@ -138,16 +138,16 @@
 
 (behavior ::cljx.result.inline
           :triggers #{:editor.eval.cljx.result.inline}
-          :reaction (fn [obj res]
-                      (doseq [result (:results res)]
-                        (if (contains? result :stack)
-                          (object/raise obj :editor.eval.cljx.exception result :passed)
-                          (object/raise obj :editor.result (:result result) (get-inline-result-loc (:meta result)))))))
+          :reaction (fn [editor result]
+                      (doseq [res (:results result)]
+                        (if (contains? res :stack)
+                          (object/raise editor :editor.eval.cljx.exception res :passed)
+                          (object/raise editor :editor.result (:result res) (get-inline-result-loc (:meta res)))))))
 
 (behavior ::cljx.result.exception
           :triggers #{:editor.eval.cljx.exception}
-          :reaction (fn [obj res passed?]
+          :reaction (fn [editor result passed?]
                       (when-not passed?
                         (notifos/done-working ""))
-                      (notifos/set-msg! (:result res) {:class "error"})
-                      (object/raise obj :editor.exception (:stack res) (get-inline-result-loc (:meta res)))))
+                      (notifos/set-msg! (:result result) {:class "error"})
+                      (object/raise editor :editor.exception (:stack result) (get-inline-result-loc (:meta result)))))
