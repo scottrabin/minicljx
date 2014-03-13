@@ -1,5 +1,6 @@
 (ns lt.plugins.minicljx
-  (:require [lt.plugins.clojure :as lt-clj]
+  (:require [lt.plugins.minicljx.tmpfile :refer [create-temporary-file! delete-temporary-file!]]
+            [lt.plugins.clojure :as lt-clj]
             [cljs.reader :as reader]
             [lt.util.cljs :refer [->dottedkw]]
             [lt.object :as object]
@@ -10,10 +11,10 @@
   (:require-macros [lt.macros :refer [behavior]]))
 
 (defn- send-command
-  [editor command info]
   "Send the given command to the appropriate evaluation environment.
   This is an internal helper function to ensure that the correct REPL
   is used to evaluate eval'd code"
+  [editor command info]
   (let [client (eval/get-client! {:command command
                                   :info info
                                   :origin editor
@@ -43,13 +44,17 @@
                             (map reader/read-string)
                             (apply str))
         info (assoc (:info @editor)
+               :path (create-temporary-file!
+                      (-> @editor :info :path) result-type processed-code)
                :code processed-code
                :pos (get-in result [:meta ::pos]))]
     (send-command editor command info)))
 
 (defn- process-cljx-result
   "Internal helper function to process the result of executing transformed code"
-  [editor result]
+  [editor result ruleset]
+  ; done with the temporary file
+  (delete-temporary-file! (get-in @editor [:info :path]) ruleset)
   (let [result-type (get-in result [:meta :result-type] :inline)
         command (->dottedkw :editor.eval.cljx.result result-type)]
     (object/raise editor command result)))
@@ -100,12 +105,12 @@
           :triggers #{:editor.eval.clj.result}
           :reaction (fn [editor result]
                       (when-not (contains? (:meta result) ::type)
-                        (process-cljx-result editor result))))
+                        (process-cljx-result editor result :clj))))
 
 (behavior ::cljx.result.cljs
           :triggers #{:editor.eval.cljs.result}
           :reaction (fn [editor result]
-                      (process-cljx-result editor {:results (list result)})))
+                      (process-cljx-result editor {:results (list result)} :cljs)))
 
 (behavior ::cljx.result.clj.no-op
           :triggers #{:editor.eval.clj.no-op}
