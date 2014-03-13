@@ -67,6 +67,13 @@
     (doseq [mode modes]
       (do-transform editor info mode))))
 
+(defn- get-inline-result-loc
+  "Transforms the position data from a clj/s evaluation into an inline result structure"
+  [{:keys [line end-line end-column] :or {line 1 end-line 1 end-column 0}}]
+  {:ch end-column
+   :start-line (dec line)
+   :line (dec end-line)})
+
 (behavior ::on-eval
           :triggers #{:eval}
           :reaction (fn [editor]
@@ -125,31 +132,22 @@
 (behavior ::cljx.result.cljs.exception
           :triggers #{:editor.eval.cljs.exception}
           :reaction (fn [editor result]
-                      (object/raise editor :editor.exception
-                                    (:ex result)
-                                    {:line (dec (get-in result [:meta :end-line]))
-                                     :ch (get-in result [:meta :end-column] 0)
-                                     :start-line (dec (get-in result [:meta :line] 1))})))
+                      (let [exception (:ex result)
+                            loc (get-inline-result-loc (:meta result))]
+                        (object/raise editor :editor.exception exception loc))))
 
 (behavior ::cljx.result.inline
           :triggers #{:editor.eval.cljx.result.inline}
           :reaction (fn [obj res]
-                      (doseq [result (:results res)
-                              :let [meta (:meta result)
-                                    loc {:line (-> meta :end-line dec)
-                                         :ch (-> meta :end-column)
-                                         :start-line (-> meta :line dec)}]]
+                      (doseq [result (:results res)]
                         (if (contains? result :stack)
                           (object/raise obj :editor.eval.cljx.exception result :passed)
-                          (object/raise obj :editor.result (:result result) loc)))))
+                          (object/raise obj :editor.result (:result result) (get-inline-result-loc (:meta result)))))))
 
 (behavior ::cljx.result.exception
           :triggers #{:editor.eval.cljx.exception}
           :reaction (fn [obj res passed?]
                       (when-not passed?
                         (notifos/done-working ""))
-                      (let [loc {:line (-> res :meta :end-line dec)
-                                 :ch (get-in res [:meta :end-column] 0)
-                                 :start-line (dec (get-in res [:meta :line] 1))}]
-                        (notifos/set-msg! (:result res) {:class "error"})
-                        (object/raise obj :editor.exception (:stack res) loc))))
+                      (notifos/set-msg! (:result res) {:class "error"})
+                      (object/raise obj :editor.exception (:stack res) (get-inline-result-loc (:meta res)))))
