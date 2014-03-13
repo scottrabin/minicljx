@@ -122,6 +122,15 @@
           :reaction (fn [editor location]
                       (notifos/set-msg! "No cljs form found under cursor")))
 
+(behavior ::cljx.result.cljs.exception
+          :triggers #{:editor.eval.cljs.exception}
+          :reaction (fn [editor result]
+                      (object/raise editor :editor.exception
+                                    (:ex result)
+                                    {:line (dec (get-in result [:meta :end-line]))
+                                     :ch (get-in result [:meta :end-column] 0)
+                                     :start-line (dec (get-in result [:meta :line] 1))})))
+
 (behavior ::cljx.result.inline
           :triggers #{:editor.eval.cljx.result.inline}
           :reaction (fn [obj res]

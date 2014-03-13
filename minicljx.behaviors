@@ -13,5 +13,6 @@
                 :lt.plugins.minicljx/cljx.result.cljs
                 :lt.plugins.minicljx/cljx.result.clj.no-op
                 :lt.plugins.minicljx/cljx.result.cljs.no-op
+                :lt.plugins.minicljx/cljx.result.cljs.exception
                 :lt.plugins.minicljx/cljx.result.inline
                 :lt.plugins.minicljx/cljx.result.exception]}}
