@@ -21,34 +21,19 @@
                                   :create lt-clj/try-connect})]
     (clients/send client command info :only editor)))
 
-(defn- get-transform [code ruleset]
-  (-> "(require '[cljx.core] '[cljx.rules]) (cljx.core/transform %CODE% cljx.rules/%RULESET%-rules)"
-      (clojure.string/replace "%RULESET%" (name ruleset))
-      (clojure.string/replace "%CODE%" (pr-str code))))
+(defn- get-transform [code]
+  (pr-str `(do
+             (require '[cljx.core] '[cljx.rules])
+             {:clj  (cljx.core/transform ~code cljx.rules/clj-rules)
+              :cljs (cljx.core/transform ~code cljx.rules/cljs-rules)})))
 
 (defn- do-transform
   "Run the transform operations for clj/s"
-  [editor info ruleset]
+  [editor info]
   (send-command editor :editor.eval.clj
                 (-> info
-                    (assoc :code (get-transform (:code info) ruleset))
-                    (assoc-in [:meta ::type] ruleset))))
-
-(defn- process-cljx-transform-result
-  "Internal helper function to process the result of a cljx transformation"
-  [editor result]
-  (let [result-type (-> result :meta ::type)
-        command (->dottedkw :editor.eval result-type)
-        processed-code (->> (:results result)
-                            (map :result)
-                            (map reader/read-string)
-                            (apply str))
-        info (assoc (:info @editor)
-               :path (create-temporary-file!
-                      (-> @editor :info :path) result-type processed-code)
-               :code processed-code
-               :pos (get-in result [:meta ::pos]))]
-    (send-command editor command info)))
+                    (assoc :code (get-transform (:code info)))
+                    (assoc-in [:meta ::type] ::transform))))
 
 (defn- process-cljx-result
   "Internal helper function to process the result of executing transformed code"
@@ -58,14 +43,6 @@
   (let [result-type (get-in result [:meta :result-type] :inline)
         command (->dottedkw :editor.eval.cljx.result result-type)]
     (object/raise editor command result)))
-
-(defn- evaluate-cljx
-  [editor info]
-  (let [info (assoc info
-               :code (ed/->val (:ed @editor)))
-        modes [:clj :cljs]]
-    (doseq [mode modes]
-      (do-transform editor info mode))))
 
 (defn- get-inline-result-loc
   "Transforms the position data from a clj/s evaluation into an inline result structure"
@@ -77,19 +54,34 @@
 (behavior ::on-eval
           :triggers #{:eval}
           :reaction (fn [editor]
-                      (evaluate-cljx editor (:info @editor))))
+                      (do-transform editor
+                                    (assoc (:info @editor)
+                                      :code (ed/->val (:ed @editor))))))
 
 (behavior ::on-eval.one
           :triggers #{:eval.one}
           :reaction (fn [editor]
-                      (evaluate-cljx editor (assoc (:info @editor)
-                                              :meta {::pos (ed/->cursor editor)}))))
+                      (do-transform editor
+                                    (assoc (:info @editor)
+                                      :code (ed/->val (:ed @editor))
+                                      :meta {::pos (ed/->cursor editor)}))))
 
-(behavior ::cljx.precompile-result.clj
+(behavior ::cljx.precompile-result
           :triggers #{:editor.eval.clj.result}
           :reaction (fn [editor result]
-                      (when (contains? (:meta result) ::type)
-                        (process-cljx-transform-result editor result))))
+                      (when (= (get-in result [:meta ::type]) ::transform)
+                        (let [pos (get-in result [:results :meta ::pos])
+                              tx-result (-> result :results first :result reader/read-string)]
+                          (doseq [rtype [:clj :cljs]
+                                  :let [code (rtype tx-result)]
+                                  :when code]
+                            (send-command editor
+                                          (->dottedkw :editor.eval rtype)
+                                          (assoc (:info @editor)
+                                            :path (create-temporary-file!
+                                                   (-> @editor :info :path) rtype code)
+                                            :code code
+                                            :pos pos)))))))
 
 (behavior ::cljx.precompile-result.cljs
           :triggers #{:editor.eval.cljs.code}

@@ -7,7 +7,7 @@
                                        :tags [:editor.cljx]}])]
   :editor.cljx [:lt.plugins.minicljx/on-eval
                 :lt.plugins.minicljx/on-eval.one
-                :lt.plugins.minicljx/cljx.precompile-result.clj
+                :lt.plugins.minicljx/cljx.precompile-result
                 :lt.plugins.minicljx/cljx.precompile-result.cljs
                 :lt.plugins.minicljx/cljx.result.clj
                 :lt.plugins.minicljx/cljx.result.cljs
