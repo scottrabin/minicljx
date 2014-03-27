@@ -36,7 +36,7 @@
                     (assoc :code (get-transform (:code info)))
                     (assoc-in [:meta ::type] ::transform))))
 
-(defn- process-cljx-result
+(defn- process-eval-result
   "Internal helper function to process the result of executing transformed code"
   [editor result ruleset]
   ; done with the temporary file
@@ -110,13 +110,13 @@
           :triggers #{:editor.eval.clj.result}
           :reaction (fn [editor result]
                       (when-not (contains? (:meta result) ::type)
-                        (process-cljx-result editor result :clj))))
+                        (process-eval-result editor result :clj))))
 
 (behavior ::cljx.result.cljs
           :desc "cljx: Process ClojureScript evaluation results"
           :triggers #{:editor.eval.cljs.result}
           :reaction (fn [editor result]
-                      (process-cljx-result editor {:results (list result)} :cljs)))
+                      (process-eval-result editor {:results (list result)} :cljs)))
 
 (behavior ::cljx.result.clj.no-op
           :desc "cljx: Process no-op Clojure results"
