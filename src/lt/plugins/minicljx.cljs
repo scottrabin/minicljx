@@ -22,6 +22,7 @@
     (clients/send client command info :only editor)))
 
 (defn- get-transform [code]
+  "Generate the code sent to the cljx processor to translate it into valid clj/cljs"
   (pr-str `(do
              (require '[cljx.core] '[cljx.rules])
              {:clj  (cljx.core/transform ~code cljx.rules/clj-rules)
@@ -52,6 +53,7 @@
    :line (dec end-line)})
 
 (behavior ::on-eval
+          :desc "cljx: Evaluate all contents in an editor as both Clojure and ClojureScript"
           :triggers #{:eval}
           :reaction (fn [editor]
                       (do-transform editor
@@ -59,6 +61,7 @@
                                       :code (ed/->val (:ed @editor))))))
 
 (behavior ::on-eval.one
+          :desc "cljx: Evaluate a single form in an editor as both Clojure and ClojureScript"
           :triggers #{:eval.one}
           :reaction (fn [editor]
                       (do-transform editor
@@ -67,6 +70,7 @@
                                       :meta {::pos (ed/->cursor editor)}))))
 
 (behavior ::cljx.precompile-result
+          :desc "cljx: Evaluate cljx->Clojure and cljx->ClojureScript transform results"
           :triggers #{:editor.eval.clj.result}
           :reaction (fn [editor result]
                       (when (= (get-in result [:meta ::type]) ::transform)
@@ -84,6 +88,7 @@
                                             :pos pos)))))))
 
 (behavior ::cljx.precompile-result.cljs
+          :desc "cljx: Evaluate ClojureScript->Javascript transform results"
           :triggers #{:editor.eval.cljs.code}
           :reaction (fn [editor results]
                       (let [command :editor.eval.cljs.exec
@@ -101,27 +106,32 @@
                         (clients/send client command processed-result :only editor))))
 
 (behavior ::cljx.result.clj
+          :desc "cljx: Process Clojure evaluation results"
           :triggers #{:editor.eval.clj.result}
           :reaction (fn [editor result]
                       (when-not (contains? (:meta result) ::type)
                         (process-cljx-result editor result :clj))))
 
 (behavior ::cljx.result.cljs
+          :desc "cljx: Process ClojureScript evaluation results"
           :triggers #{:editor.eval.cljs.result}
           :reaction (fn [editor result]
                       (process-cljx-result editor {:results (list result)} :cljs)))
 
 (behavior ::cljx.result.clj.no-op
+          :desc "cljx: Process no-op Clojure results"
           :triggers #{:editor.eval.clj.no-op}
           :reaction (fn [editor location]
                       (notifos/set-msg! "No clj form found under cursor")))
 
 (behavior ::cljx.result.cljs.no-op
+          :desc "cljx: Process no-op ClojureScript results"
           :triggers #{:editor.eval.cljs.no-op}
           :reaction (fn [editor location]
                       (notifos/set-msg! "No cljs form found under cursor")))
 
 (behavior ::cljx.result.cljs.exception
+          :desc "cljx: Process exception during ClojureScript evaluation"
           :triggers #{:editor.eval.cljs.exception}
           :reaction (fn [editor result]
                       (let [exception (:ex result)
@@ -129,6 +139,7 @@
                         (object/raise editor :editor.exception exception loc))))
 
 (behavior ::cljx.result.inline
+          :desc "cljx: Process inline results"
           :triggers #{:editor.eval.cljx.result.inline}
           :reaction (fn [editor result]
                       (doseq [res (:results result)]
@@ -137,6 +148,7 @@
                           (object/raise editor :editor.result (:result res) (get-inline-result-loc (:meta res)))))))
 
 (behavior ::cljx.result.exception
+          :desc "cljx: Process cljx->Clojure/cljx->ClojureScript transformation exceptions"
           :triggers #{:editor.eval.cljx.exception}
           :reaction (fn [editor result passed?]
                       (when-not passed?
