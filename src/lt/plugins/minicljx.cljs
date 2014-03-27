@@ -74,7 +74,7 @@
           :triggers #{:editor.eval.clj.result}
           :reaction (fn [editor result]
                       (when (= (get-in result [:meta ::type]) ::transform)
-                        (let [pos (get-in result [:results :meta ::pos])
+                        (let [pos (get-in result [:meta ::pos])
                               tx-result (-> result :results first :result reader/read-string)]
                           (doseq [rtype [:clj :cljs]
                                   :let [code (rtype tx-result)]
